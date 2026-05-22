@@ -9,12 +9,16 @@ function DonorSearch() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState(null);
+  const [matchType, setMatchType] = useState(null);
+  const [infoMessage, setInfoMessage] = useState(null);
 
   const handleSearch = async (e) => {
     e.preventDefault();
     setError(null);
     setDonors([]);
     setSearched(false);
+    setMatchType(null);
+    setInfoMessage(null);
     setLoading(true);
 
     try {
@@ -24,6 +28,8 @@ function DonorSearch() {
       if (data.success) {
         setDonors(data.donors);
         setCount(data.count);
+        setMatchType(data.match_type);
+        if (data.message) setInfoMessage(data.message);
       } else {
         setError(data.errors.join(' '));
       }
@@ -39,14 +45,15 @@ function DonorSearch() {
     <div className="card">
       <h2>Find Blood Donors</h2>
       <p style={{ marginBottom: '1rem' }}>
-        Search for available donors in your area. Only donors who are eligible
-        (last donation over 6 months ago) will be shown.
+        Search for available donors in your area. Donors who donated within the
+        last 6 months are automatically hidden. If no donors are found in your
+        city, results will expand nationwide.
       </p>
 
       <form onSubmit={handleSearch}>
         <div className="form-row">
           <div className="form-group">
-            <label>Blood Group Needed</label>
+            <label>Blood Group Needed <span className="required">*</span></label>
             <select value={blood_group} onChange={(e) => setBloodGroup(e.target.value)} required>
               <option value="">-- Select --</option>
               {BLOOD_GROUPS.map((bg) => (
@@ -55,7 +62,7 @@ function DonorSearch() {
             </select>
           </div>
           <div className="form-group">
-            <label>City / Region</label>
+            <label>City / Region <span className="required">*</span></label>
             <select value={city} onChange={(e) => setCity(e.target.value)} required>
               <option value="">-- Select City --</option>
               {INDIAN_CITIES.map((c) => (
@@ -73,11 +80,20 @@ function DonorSearch() {
 
       {searched && !error && (
         <div style={{ marginTop: '1.5rem' }}>
-          <h3>
-            {count > 0
-              ? `Found ${count} donor${count > 1 ? 's' : ''} in ${city}`
-              : `No donors found in ${city} for blood group ${blood_group}`}
-          </h3>
+          {matchType === 'exact' && (
+            <h3>Found {count} donor{count > 1 ? 's' : ''} in {city}</h3>
+          )}
+
+          {matchType === 'nationwide' && infoMessage && (
+            <>
+              <div className="alert alert-info">{infoMessage}</div>
+              <h3>Showing {count} donor{count > 1 ? 's' : ''} across India</h3>
+            </>
+          )}
+
+          {matchType === 'none' && infoMessage && (
+            <div className="alert alert-error">{infoMessage}</div>
+          )}
 
           {donors.length > 0 && (
             <div style={{ marginTop: '1rem' }}>
@@ -87,7 +103,10 @@ function DonorSearch() {
               </div>
               {donors.map((donor) => (
                 <div key={donor.id} className="donor-card">
-                  <h4>{donor.name}</h4>
+                  <div className="donor-card-header">
+                    <h4>{donor.name}</h4>
+                    {donor.city && <span className="donor-location">{donor.city}{donor.state ? `, ${donor.state}` : ''}</span>}
+                  </div>
                   <p><strong>Phone:</strong> {donor.phone}</p>
                   <p>
                     <strong>Last Donation:</strong>{' '}

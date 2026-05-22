@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { BLOOD_GROUPS, INDIAN_CITIES } from '../constants';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext';
+import { BLOOD_GROUPS, INDIAN_CITIES, INDIAN_STATES } from '../constants';
 
 function DonorRegister() {
   const [form, setForm] = useState({
@@ -9,7 +11,9 @@ function DonorRegister() {
     phone: '',
     email: '',
     city: '',
+    state: '',
     full_address: '',
+    password: '',
     tattoo_date: '',
     has_tattoo: 'no',
     confirm_no_diseases: false,
@@ -18,7 +22,8 @@ function DonorRegister() {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
-  const [donorId, setDonorId] = useState(null);
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -56,7 +61,9 @@ function DonorRegister() {
       phone: form.phone,
       email: form.email,
       city: form.city,
+      state: form.state,
       full_address: form.full_address,
+      password: form.password,
       has_diseases: false,
     };
 
@@ -74,13 +81,9 @@ function DonorRegister() {
       const data = await res.json();
 
       if (data.success) {
-        setMessage({ type: 'success', text: 'Registration successful! Your donor ID is: ' + data.donor.id });
-        setDonorId(data.donor.id);
-        setForm({
-          name: '', blood_group: '', age: '', phone: '', email: '',
-          city: '', full_address: '', tattoo_date: '', has_tattoo: 'no',
-          confirm_no_diseases: false, confirm_blood_group: false, confirm_eligibility: false,
-        });
+        login(data.token, data.donor);
+        setMessage({ type: 'success', text: 'Registration successful! You are now logged in.' });
+        setTimeout(() => navigate('/update'), 1500);
       } else {
         setMessage({ type: 'error', text: data.errors.join(' ') });
       }
@@ -105,21 +108,14 @@ function DonorRegister() {
         <div className={`alert alert-${message.type}`}>{message.text}</div>
       )}
 
-      {donorId && (
-        <div className="alert alert-info">
-          Save your Donor ID (<strong>{donorId}</strong>) &mdash; you will need
-          it to update your details in the future.
-        </div>
-      )}
-
       <form onSubmit={handleSubmit}>
         <div className="form-row">
           <div className="form-group">
-            <label>Full Name</label>
+            <label>Full Name <span className="required">*</span></label>
             <input name="name" value={form.name} onChange={handleChange} required placeholder="e.g. John Doe" />
           </div>
           <div className="form-group">
-            <label>Blood Group</label>
+            <label>Blood Group <span className="required">*</span></label>
             <select name="blood_group" value={form.blood_group} onChange={handleChange} required>
               <option value="">-- Select --</option>
               {BLOOD_GROUPS.map((bg) => (
@@ -131,24 +127,24 @@ function DonorRegister() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>Age</label>
+            <label>Age <span className="required">*</span></label>
             <input name="age" type="number" value={form.age} onChange={handleChange} required min="18" max="60" />
-            <div className="hint">Must be between 18 and 60 years old</div>
+            <div className="hint">Must be between 18 and 60</div>
           </div>
           <div className="form-group">
-            <label>Phone Number</label>
+            <label>Phone Number <span className="required">*</span></label>
             <input name="phone" value={form.phone} onChange={handleChange} required placeholder="e.g. +91 9876543210" />
           </div>
         </div>
 
         <div className="form-group">
-          <label>Email</label>
+          <label>Email <span className="required">*</span></label>
           <input name="email" type="email" value={form.email} onChange={handleChange} required placeholder="e.g. john@example.com" />
         </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label>City</label>
+            <label>City <span className="required">*</span></label>
             <select name="city" value={form.city} onChange={handleChange} required>
               <option value="">-- Select City --</option>
               {INDIAN_CITIES.map((c) => (
@@ -157,9 +153,19 @@ function DonorRegister() {
             </select>
           </div>
           <div className="form-group">
-            <label>Full Address</label>
-            <textarea name="full_address" value={form.full_address} onChange={handleChange} required placeholder="Street, locality, landmark..." />
+            <label>State <span className="required">*</span></label>
+            <select name="state" value={form.state} onChange={handleChange} required>
+              <option value="">-- Select State --</option>
+              {INDIAN_STATES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
           </div>
+        </div>
+
+        <div className="form-group">
+          <label>Full Address <span className="required">*</span></label>
+          <textarea name="full_address" value={form.full_address} onChange={handleChange} required placeholder="Street, locality, landmark..." />
         </div>
 
         <div className="form-group">
@@ -172,45 +178,36 @@ function DonorRegister() {
 
         {form.has_tattoo === 'yes' && (
           <div className="form-group">
-            <label>Date of most recent tattoo</label>
+            <label>Date of most recent tattoo <span className="required">*</span></label>
             <input name="tattoo_date" type="date" value={form.tattoo_date} onChange={handleChange} required />
             <div className="hint">Must be at least 1 year ago to be eligible</div>
           </div>
         )}
 
         <div className="form-group">
-          <label>
-            <input
-              type="checkbox"
-              name="confirm_eligibility"
-              checked={form.confirm_eligibility}
-              onChange={handleChange}
-            />
-            {' '}I confirm that I meet the eligibility criteria (age 18&ndash;60, no disqualifying conditions)
+          <label>Password <span className="required">*</span></label>
+          <input name="password" type="password" value={form.password} onChange={handleChange} required minLength="6" placeholder="At least 6 characters" />
+          <div className="hint">Use this password to log in and update your details later</div>
+        </div>
+
+        <div className="form-group">
+          <label className="checkbox-label">
+            <input type="checkbox" name="confirm_eligibility" checked={form.confirm_eligibility} onChange={handleChange} />
+            <span>I confirm that I meet the eligibility criteria (age 18&ndash;60, no disqualifying conditions) <span className="required">*</span></span>
           </label>
         </div>
 
         <div className="form-group">
-          <label>
-            <input
-              type="checkbox"
-              name="confirm_no_diseases"
-              checked={form.confirm_no_diseases}
-              onChange={handleChange}
-            />
-            {' '}I confirm that I have no history of blood-related diseases
+          <label className="checkbox-label">
+            <input type="checkbox" name="confirm_no_diseases" checked={form.confirm_no_diseases} onChange={handleChange} />
+            <span>I confirm that I have no history of blood-related diseases <span className="required">*</span></span>
           </label>
         </div>
 
         <div className="form-group">
-          <label>
-            <input
-              type="checkbox"
-              name="confirm_blood_group"
-              checked={form.confirm_blood_group}
-              onChange={handleChange}
-            />
-            {' '}I understand that my blood group is <strong>final and cannot be changed</strong> after registration
+          <label className="checkbox-label">
+            <input type="checkbox" name="confirm_blood_group" checked={form.confirm_blood_group} onChange={handleChange} />
+            <span>I understand that my blood group is <strong>final and cannot be changed</strong> after registration <span className="required">*</span></span>
           </label>
         </div>
 

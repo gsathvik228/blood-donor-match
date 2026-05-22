@@ -1,44 +1,51 @@
 import React, { useState, useEffect } from 'react';
-import { INDIAN_CITIES } from '../constants';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext';
+import { INDIAN_CITIES, INDIAN_STATES } from '../constants';
 
 function DonorUpdate() {
-  const [step, setStep] = useState('lookup');
-  const [donorId, setDonorId] = useState('');
-  const [donor, setDonor] = useState(null);
+  const { user, token, logout } = useAuth();
+  const navigate = useNavigate();
   const [form, setForm] = useState({});
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
   const [message, setMessage] = useState(null);
 
-  const lookupDonor = async (e) => {
-    e.preventDefault();
-    setMessage(null);
-    setLoading(true);
+  useEffect(() => {
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    fetchProfile();
+  }, [token]);
 
+  const fetchProfile = async () => {
+    setFetching(true);
     try {
-      const res = await fetch(`/api/donors/${donorId}`);
+      const res = await fetch('/api/donors/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
-
       if (data.success) {
-        setDonor(data.donor);
+        const d = data.donor;
         setForm({
-          name: data.donor.name,
-          age: data.donor.age,
-          phone: data.donor.phone,
-          email: data.donor.email,
-          city: data.donor.city,
-          full_address: data.donor.full_address,
-          last_donation_date: data.donor.last_donation_date
-            ? data.donor.last_donation_date.split('T')[0]
-            : '',
+          name: d.name || '',
+          age: d.age || '',
+          phone: d.phone || '',
+          email: d.email || '',
+          city: d.city || '',
+          state: d.state || '',
+          full_address: d.full_address || '',
+          last_donation_date: d.last_donation_date ? d.last_donation_date.split('T')[0] : '',
         });
-        setStep('update');
       } else {
-        setMessage({ type: 'error', text: data.errors.join(' ') });
+        logout();
+        navigate('/login');
       }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to connect to server.' });
+      setMessage({ type: 'error', text: 'Failed to load profile.' });
     } finally {
-      setLoading(false);
+      setFetching(false);
     }
   };
 
@@ -53,8 +60,8 @@ function DonorUpdate() {
     setLoading(true);
 
     const body = {};
-    for (const key of ['name', 'age', 'phone', 'email', 'city', 'full_address', 'last_donation_date']) {
-      if (form[key] !== String(donor[key] || '')) {
+    for (const key of ['name', 'age', 'phone', 'email', 'city', 'state', 'full_address', 'last_donation_date']) {
+      if (form[key] !== String(user[key] || '')) {
         body[key] = form[key];
       }
     }
@@ -66,9 +73,12 @@ function DonorUpdate() {
     }
 
     try {
-      const res = await fetch(`/api/donors/${donorId}`, {
+      const res = await fetch('/api/donors/me', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(body),
       });
 
@@ -76,18 +86,7 @@ function DonorUpdate() {
 
       if (data.success) {
         setMessage({ type: 'success', text: 'Details updated successfully!' });
-        setDonor(data.donor);
-        setForm({
-          name: data.donor.name,
-          age: data.donor.age,
-          phone: data.donor.phone,
-          email: data.donor.email,
-          city: data.donor.city,
-          full_address: data.donor.full_address,
-          last_donation_date: data.donor.last_donation_date
-            ? data.donor.last_donation_date.split('T')[0]
-            : '',
-        });
+        fetchProfile();
       } else {
         setMessage({ type: 'error', text: data.errors.join(' ') });
       }
@@ -98,48 +97,24 @@ function DonorUpdate() {
     }
   };
 
-  if (step === 'lookup') {
+  if (fetching) {
     return (
-      <div className="card">
-        <h2>Update Donor Details</h2>
-
-        {message && (
-          <div className={`alert alert-${message.type}`}>{message.text}</div>
-        )}
-
-        <p style={{ marginBottom: '1rem' }}>
-          Enter your Donor ID to update your details. Note: blood group cannot
-          be changed.
-        </p>
-
-        <form onSubmit={lookupDonor}>
-          <div className="form-group">
-            <label>Donor ID</label>
-            <input
-              value={donorId}
-              onChange={(e) => setDonorId(e.target.value)}
-              required
-              placeholder="Enter your donor ID"
-            />
-          </div>
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Looking up...' : 'Find My Details'}
-          </button>
-        </form>
+      <div className="card" style={{ textAlign: 'center' }}>
+        <p>Loading your profile...</p>
       </div>
     );
   }
 
   return (
     <div className="card">
-      <h2>Update Donor Details</h2>
+      <h2>My Donor Profile</h2>
       <p>
-        Donor ID: <strong>{donor.id}</strong> &mdash; Blood Group:{' '}
-        <strong>{donor.blood_group}</strong> (cannot be changed)
+        Donor ID: <strong>{user.id}</strong> &mdash; Blood Group:{' '}
+        <strong>{user.blood_group}</strong> (cannot be changed)
       </p>
 
       {message && (
-        <div className={`alert alert-${message.type}`}>{message.text}</div>
+        <div className={`alert alert-${message.type}`} style={{ marginTop: '1rem' }}>{message.text}</div>
       )}
 
       <form onSubmit={handleUpdate} style={{ marginTop: '1rem' }}>
@@ -176,35 +151,29 @@ function DonorUpdate() {
             </select>
           </div>
           <div className="form-group">
-            <label>Full Address</label>
-            <textarea name="full_address" value={form.full_address} onChange={handleChange} required />
+            <label>State</label>
+            <select name="state" value={form.state} onChange={handleChange} required>
+              <option value="">-- Select State --</option>
+              {INDIAN_STATES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
           </div>
         </div>
 
         <div className="form-group">
+          <label>Full Address</label>
+          <textarea name="full_address" value={form.full_address} onChange={handleChange} required />
+        </div>
+
+        <div className="form-group">
           <label>Latest Blood Donation Date</label>
-          <input
-            name="last_donation_date"
-            type="date"
-            value={form.last_donation_date}
-            onChange={handleChange}
-          />
-          <div className="hint">
-            Update this after each donation. Donors cannot donate again within 6 months.
-          </div>
+          <input name="last_donation_date" type="date" value={form.last_donation_date} onChange={handleChange} />
+          <div className="hint">Update this after each donation. Donors cannot donate again within 6 months.</div>
         </div>
 
         <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? 'Updating...' : 'Update Details'}
-        </button>
-
-        <button
-          type="button"
-          className="btn"
-          style={{ marginLeft: '0.5rem', background: '#95a5a6', color: '#fff' }}
-          onClick={() => setStep('lookup')}
-        >
-          Back
+          {loading ? 'Updating...' : 'Save Changes'}
         </button>
       </form>
     </div>

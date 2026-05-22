@@ -1,7 +1,17 @@
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
+const INDIAN_STATES = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chandigarh',
+  'Chhattisgarh', 'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Goa',
+  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu and Kashmir', 'Jharkhand',
+  'Karnataka', 'Kerala', 'Ladakh', 'Lakshadweep', 'Madhya Pradesh',
+  'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha',
+  'Puducherry', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana',
+  'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+];
+
 function validateDonorRegistration(req, res, next) {
-  const { name, blood_group, age, phone, email, city, full_address, has_diseases, tattoo_date } = req.body;
+  const { name, blood_group, age, phone, email, city, state, full_address, has_diseases, tattoo_date, password } = req.body;
 
   const errors = [];
 
@@ -10,7 +20,7 @@ function validateDonorRegistration(req, res, next) {
   }
 
   if (!blood_group || !BLOOD_GROUPS.includes(blood_group.toUpperCase())) {
-    errors.push('Valid blood group is required (A+, A-, B+, B-, AB+, AB-, O+, O-)');
+    errors.push('Valid blood group is required');
   }
 
   const ageNum = parseInt(age);
@@ -30,6 +40,10 @@ function validateDonorRegistration(req, res, next) {
     errors.push('City is required');
   }
 
+  if (!state || !INDIAN_STATES.includes(state)) {
+    errors.push('Valid state is required');
+  }
+
   if (!full_address || full_address.trim().length < 5) {
     errors.push('Full address is required');
   }
@@ -47,6 +61,10 @@ function validateDonorRegistration(req, res, next) {
     }
   }
 
+  if (!password || password.length < 6) {
+    errors.push('Password is required and must be at least 6 characters');
+  }
+
   if (errors.length > 0) {
     return res.status(400).json({ success: false, errors });
   }
@@ -55,9 +73,7 @@ function validateDonorRegistration(req, res, next) {
 }
 
 function validateDonorUpdate(req, res, next) {
-  const allowedFields = ['name', 'age', 'phone', 'email', 'city', 'full_address', 'last_donation_date'];
   const updates = req.body;
-
   const errors = [];
 
   if (updates.blood_group) {
