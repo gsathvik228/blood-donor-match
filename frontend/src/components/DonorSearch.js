@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useAuth } from '../AuthContext';
 import { BLOOD_GROUPS, INDIAN_CITIES } from '../constants';
 
 function DonorSearch() {
+  const { token } = useAuth();
   const [blood_group, setBloodGroup] = useState('');
   const [city, setCity] = useState('');
   const [donors, setDonors] = useState([]);
@@ -22,7 +24,9 @@ function DonorSearch() {
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/donors/search?blood_group=${encodeURIComponent(blood_group)}&city=${encodeURIComponent(city)}`);
+      const res = await fetch(`/api/donors/search?blood_group=${encodeURIComponent(blood_group)}&city=${encodeURIComponent(city)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
 
       if (data.success) {
@@ -34,7 +38,7 @@ function DonorSearch() {
         setError(data.errors.join(' '));
       }
     } catch (err) {
-      setError('Failed to connect to server. Please ensure the backend is running.');
+      setError('Failed to connect to server.');
     } finally {
       setLoading(false);
       setSearched(true);

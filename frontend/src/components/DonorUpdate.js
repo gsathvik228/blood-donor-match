@@ -11,9 +11,11 @@ function DonorUpdate() {
   const [fetching, setFetching] = useState(true);
   const [message, setMessage] = useState(null);
 
+  const [profilePhone, setProfilePhone] = useState('');
+
   useEffect(() => {
     if (!token) {
-      navigate('/login');
+      navigate('/signin');
       return;
     }
     fetchProfile();
@@ -28,10 +30,10 @@ function DonorUpdate() {
       const data = await res.json();
       if (data.success) {
         const d = data.donor;
+        setProfilePhone(d.phone || '');
         setForm({
           name: d.name || '',
           age: d.age || '',
-          phone: d.phone || '',
           email: d.email || '',
           city: d.city || '',
           state: d.state || '',
@@ -40,7 +42,7 @@ function DonorUpdate() {
         });
       } else {
         logout();
-        navigate('/login');
+        navigate('/signin');
       }
     } catch (err) {
       setMessage({ type: 'error', text: 'Failed to load profile.' });
@@ -60,7 +62,7 @@ function DonorUpdate() {
     setLoading(true);
 
     const body = {};
-    for (const key of ['name', 'age', 'phone', 'email', 'city', 'state', 'full_address', 'last_donation_date']) {
+    for (const key of ['name', 'age', 'email', 'city', 'state', 'full_address', 'last_donation_date']) {
       if (form[key] !== String(user[key] || '')) {
         body[key] = form[key];
       }
@@ -132,7 +134,8 @@ function DonorUpdate() {
         <div className="form-row">
           <div className="form-group">
             <label>Phone Number</label>
-            <input name="phone" value={form.phone} onChange={handleChange} required />
+            <input value={profilePhone} disabled className="input-disabled" />
+            <div className="hint">Phone is tied to your account and cannot be changed</div>
           </div>
           <div className="form-group">
             <label>Email</label>

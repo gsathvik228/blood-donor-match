@@ -1,60 +1,50 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcrypt');
 const db = require('../config/db');
-const { generateToken, requireAuth } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 const { validateDonorRegistration, validateDonorUpdate } = require('../middleware/validation');
 
-router.post('/register', validateDonorRegistration, async (req, res) => {
-  const client = await db.pool.connect();
+router.post('/register', requireAuth, validateDonorRegistration, async (req, res) => {
   try {
-    const { name, blood_group, age, phone, email, city, state, full_address, tattoo_date, password } = req.body;
+    const userId = req.user.userId;
+    const phone = req.user.phone;
+    const { name, blood_group, age, email, city, state, full_address, tattoo_date } = req.body;
 
-    await client.query('BEGIN');
+    const userCheck = await db.query('SELECT donor_id FROM users WHERE id = $1', [userId]);
+    if (userCheck.rows[0].donor_id) {
+      return res.status(400).json({ success: false, errors: ['You already have a donor profile. Go to My Profile to update it.'] });
+    }
 
-    const donorResult = await client.query(
+    const donorResult = await db.query(
       `INSERT INTO donors (name, blood_group, age, phone, email, city, state, full_address, has_diseases, tattoo_date)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false, $9)
        RETURNING id, name, blood_group, age, phone, email, city, state, created_at`,
-      [name.trim(), blood_group.toUpperCase(), parseInt(age), phone.trim(), email.trim().toLowerCase(), city.trim(), state, full_address.trim(), tattoo_date || null]
+      [name.trim(), blood_group.toUpperCase(), parseInt(age), phone, email.trim().toLowerCase(), city.trim(), state, full_address.trim(), tattoo_date || null]
     );
 
     const donor = donorResult.rows[0];
-    const passwordHash = await bcrypt.hash(password, 10);
 
-    const userResult = await client.query(
-      `INSERT INTO users (donor_id, phone, password_hash)
-       VALUES ($1, $2, $3)
-       RETURNING id, donor_id, phone`,
-      [donor.id, phone.trim(), passwordHash]
-    );
-
-    await client.query('COMMIT');
-
-    const token = generateToken(userResult.rows[0]);
+    await db.query('UPDATE users SET donor_id = $1 WHERE id = $2', [donor.id, userId]);
 
     res.status(201).json({
       success: true,
       message: 'Donor registered successfully. Your blood group is final and cannot be changed.',
       donor,
-      token,
     });
   } catch (err) {
-    await client.query('ROLLBACK');
     console.error('Registration error:', err);
-    if (err.code === '23505' && err.constraint?.includes('users_phone')) {
-      return res.status(409).json({ success: false, errors: ['This phone number is already registered'] });
-    }
     res.status(500).json({ success: false, errors: ['Server error during registration'] });
-  } finally {
-    client.release();
   }
 });
 
 router.put('/me', requireAuth, validateDonorUpdate, async (req, res) => {
   try {
-    const { name, age, phone, email, city, state, full_address, last_donation_date } = req.body;
     const donorId = req.user.donorId;
+    if (!donorId) {
+      return res.status(400).json({ success: false, errors: ['You have not registered as a donor yet.'] });
+    }
+
+    const { name, age, email, city, state, full_address, last_donation_date } = req.body;
 
     const existing = await db.query('SELECT * FROM donors WHERE id = $1', [donorId]);
     if (existing.rows.length === 0) {
@@ -67,7 +57,6 @@ router.put('/me', requireAuth, validateDonorUpdate, async (req, res) => {
 
     if (name !== undefined) { fields.push(`name = $${idx++}`); values.push(name.trim()); }
     if (age !== undefined) { fields.push(`age = $${idx++}`); values.push(parseInt(age)); }
-    if (phone !== undefined) { fields.push(`phone = $${idx++}`); values.push(phone.trim()); }
     if (email !== undefined) { fields.push(`email = $${idx++}`); values.push(email.trim().toLowerCase()); }
     if (city !== undefined) { fields.push(`city = $${idx++}`); values.push(city.trim()); }
     if (state !== undefined) { fields.push(`state = $${idx++}`); values.push(state); }
@@ -97,7 +86,7 @@ router.put('/me', requireAuth, validateDonorUpdate, async (req, res) => {
   }
 });
 
-router.get('/search', async (req, res) => {
+router.get('/search', requireAuth, async (req, res) => {
   try {
     const { blood_group, city } = req.query;
 
@@ -132,23 +121,22 @@ router.get('/search', async (req, res) => {
       });
     }
 
-    const stateResult = await db.query(
-      `SELECT d.id, d.name, d.phone, d.last_donation_date, d.city, d.state,
-              CASE WHEN LOWER(d.city) = LOWER($2) THEN 0 ELSE 1 END AS priority
+    const allResult = await db.query(
+      `SELECT d.id, d.name, d.phone, d.last_donation_date, d.city, d.state
        FROM donors d
        WHERE d.blood_group = $1
          AND (d.last_donation_date IS NULL OR d.last_donation_date <= $3)
-       ORDER BY priority, d.name`,
+       ORDER BY d.name`,
       [bg, city, dateStr]
     );
 
-    if (stateResult.rows.length > 0) {
+    if (allResult.rows.length > 0) {
       return res.json({
         success: true,
         match_type: 'nationwide',
-        count: stateResult.rows.length,
+        count: allResult.rows.length,
         message: `No donors found in ${city}. Showing all available ${bg} donors across India.`,
-        donors: stateResult.rows,
+        donors: allResult.rows,
       });
     }
 
@@ -167,9 +155,14 @@ router.get('/search', async (req, res) => {
 
 router.get('/me', requireAuth, async (req, res) => {
   try {
+    const donorId = req.user.donorId;
+    if (!donorId) {
+      return res.status(404).json({ success: false, errors: ['No donor profile found. Please register as a donor first.'] });
+    }
+
     const result = await db.query(
       'SELECT id, name, blood_group, age, phone, email, city, state, full_address, last_donation_date, created_at, updated_at FROM donors WHERE id = $1',
-      [req.user.donorId]
+      [donorId]
     );
 
     if (result.rows.length === 0) {

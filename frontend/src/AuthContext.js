@@ -17,11 +17,17 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  const login = (newToken, donor) => {
+  const login = (newToken, userData, donorData) => {
     setToken(newToken);
-    setUser(donor);
+    setUser({ ...userData, ...(donorData || {}) });
     localStorage.setItem('bdm_token', newToken);
-    localStorage.setItem('bdm_user', JSON.stringify(donor));
+    localStorage.setItem('bdm_user', JSON.stringify({ ...userData, ...(donorData || {}) }));
+  };
+
+  const updateDonor = (donor) => {
+    const updated = { ...user, ...donor, donor_id: donor.id };
+    setUser(updated);
+    localStorage.setItem('bdm_user', JSON.stringify(updated));
   };
 
   const logout = () => {
@@ -32,7 +38,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, updateDonor, logout }}>
       {children}
     </AuthContext.Provider>
   );

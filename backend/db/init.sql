@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS donors (
     name VARCHAR(100) NOT NULL,
     blood_group VARCHAR(3) NOT NULL CHECK (blood_group IN ('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-')),
     age INT NOT NULL CHECK (age >= 18 AND age <= 60),
-    phone VARCHAR(20) NOT NULL,
+    phone VARCHAR(20) NOT NULL UNIQUE,
     email VARCHAR(100) NOT NULL,
     city VARCHAR(100) NOT NULL,
     state VARCHAR(100) NOT NULL,

@@ -5,7 +5,8 @@ import Home from './components/Home';
 import DonorRegister from './components/DonorRegister';
 import DonorSearch from './components/DonorSearch';
 import DonorUpdate from './components/DonorUpdate';
-import Login from './components/Login';
+import SignInSignUp from './components/SignInSignUp';
+import ProtectedRoute from './components/ProtectedRoute';
 import './styles/App.css';
 
 function NavBar() {
@@ -17,15 +18,21 @@ function NavBar() {
         <Link to="/" className="nav-logo">Blood Donor Match</Link>
         <div className="nav-links">
           <Link to="/" className="nav-link">Home</Link>
-          <Link to="/register" className="nav-link">Register as Donor</Link>
-          <Link to="/search" className="nav-link">Find Donors</Link>
           {user ? (
             <>
-              <Link to="/update" className="nav-link">My Profile</Link>
+              <Link to="/register" className="nav-link">
+                {user.donor_id ? 'Donor Profile' : 'Register as Donor'}
+              </Link>
+              <Link to="/search" className="nav-link">Find Donors</Link>
+              {user.donor_id && <Link to="/update" className="nav-link">My Profile</Link>}
               <button onClick={logout} className="nav-link nav-btn-logout">Logout</button>
             </>
           ) : (
-            <Link to="/login" className="nav-link">Login</Link>
+            <>
+              <Link to="/register" className="nav-link">Register as Donor</Link>
+              <Link to="/search" className="nav-link">Find Donors</Link>
+              <Link to="/signin" className="nav-link">Sign In</Link>
+            </>
           )}
         </div>
       </div>
@@ -40,10 +47,31 @@ function AppContent() {
       <main className="main-content">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/register" element={<DonorRegister />} />
-          <Route path="/search" element={<DonorSearch />} />
-          <Route path="/update" element={<DonorUpdate />} />
-          <Route path="/login" element={<Login />} />
+          <Route path="/signin" element={<SignInSignUp />} />
+          <Route
+            path="/register"
+            element={
+              <ProtectedRoute>
+                <DonorRegister />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/search"
+            element={
+              <ProtectedRoute>
+                <DonorSearch />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/update"
+            element={
+              <ProtectedRoute>
+                <DonorUpdate />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </main>
       <footer className="footer">

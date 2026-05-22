@@ -11,7 +11,7 @@ const INDIAN_STATES = [
 ];
 
 function validateDonorRegistration(req, res, next) {
-  const { name, blood_group, age, phone, email, city, state, full_address, has_diseases, tattoo_date, password } = req.body;
+  const { name, blood_group, age, email, city, state, full_address, has_diseases, tattoo_date } = req.body;
 
   const errors = [];
 
@@ -26,10 +26,6 @@ function validateDonorRegistration(req, res, next) {
   const ageNum = parseInt(age);
   if (isNaN(ageNum) || ageNum < 18 || ageNum > 60) {
     errors.push('Age must be between 18 and 60');
-  }
-
-  if (!phone || phone.trim().length < 10) {
-    errors.push('Valid phone number is required');
   }
 
   if (!email || !email.includes('@')) {
@@ -61,10 +57,6 @@ function validateDonorRegistration(req, res, next) {
     }
   }
 
-  if (!password || password.length < 6) {
-    errors.push('Password is required and must be at least 6 characters');
-  }
-
   if (errors.length > 0) {
     return res.status(400).json({ success: false, errors });
   }
@@ -89,10 +81,6 @@ function validateDonorUpdate(req, res, next) {
 
   if (updates.name && updates.name.trim().length < 2) {
     errors.push('Name must be at least 2 characters');
-  }
-
-  if (updates.phone && updates.phone.trim().length < 10) {
-    errors.push('Valid phone number is required');
   }
 
   if (updates.email && !updates.email.includes('@')) {

@@ -4,16 +4,15 @@ import { useAuth } from '../AuthContext';
 import { BLOOD_GROUPS, INDIAN_CITIES, INDIAN_STATES } from '../constants';
 
 function DonorRegister() {
+  const { user, token, updateDonor } = useAuth();
   const [form, setForm] = useState({
     name: '',
     blood_group: '',
     age: '',
-    phone: '',
     email: '',
     city: '',
     state: '',
     full_address: '',
-    password: '',
     tattoo_date: '',
     has_tattoo: 'no',
     confirm_no_diseases: false,
@@ -22,8 +21,19 @@ function DonorRegister() {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
-  const { login } = useAuth();
   const navigate = useNavigate();
+
+  if (user?.donor_id) {
+    return (
+      <div className="card" style={{ textAlign: 'center' }}>
+        <h2>You're Already Registered</h2>
+        <p>You already have a donor profile. Go to <strong>My Profile</strong> to update your details.</p>
+        <button className="btn btn-primary" onClick={() => navigate('/update')} style={{ marginTop: '1rem' }}>
+          My Profile
+        </button>
+      </div>
+    );
+  }
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -58,12 +68,10 @@ function DonorRegister() {
       name: form.name,
       blood_group: form.blood_group,
       age: parseInt(form.age),
-      phone: form.phone,
       email: form.email,
       city: form.city,
       state: form.state,
       full_address: form.full_address,
-      password: form.password,
       has_diseases: false,
     };
 
@@ -74,21 +82,24 @@ function DonorRegister() {
     try {
       const res = await fetch('/api/donors/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(body),
       });
 
       const data = await res.json();
 
       if (data.success) {
-        login(data.token, data.donor);
-        setMessage({ type: 'success', text: 'Registration successful! You are now logged in.' });
+        updateDonor(data.donor);
+        setMessage({ type: 'success', text: 'Donor registration successful!' });
         setTimeout(() => navigate('/update'), 1500);
       } else {
         setMessage({ type: 'error', text: data.errors.join(' ') });
       }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to connect to server. Please ensure the backend is running.' });
+      setMessage({ type: 'error', text: 'Failed to connect to server.' });
     } finally {
       setLoading(false);
     }
@@ -132,14 +143,9 @@ function DonorRegister() {
             <div className="hint">Must be between 18 and 60</div>
           </div>
           <div className="form-group">
-            <label>Phone Number <span className="required">*</span></label>
-            <input name="phone" value={form.phone} onChange={handleChange} required placeholder="e.g. +91 9876543210" />
+            <label>Email <span className="required">*</span></label>
+            <input name="email" type="email" value={form.email} onChange={handleChange} required placeholder="e.g. john@example.com" />
           </div>
-        </div>
-
-        <div className="form-group">
-          <label>Email <span className="required">*</span></label>
-          <input name="email" type="email" value={form.email} onChange={handleChange} required placeholder="e.g. john@example.com" />
         </div>
 
         <div className="form-row">
@@ -183,12 +189,6 @@ function DonorRegister() {
             <div className="hint">Must be at least 1 year ago to be eligible</div>
           </div>
         )}
-
-        <div className="form-group">
-          <label>Password <span className="required">*</span></label>
-          <input name="password" type="password" value={form.password} onChange={handleChange} required minLength="6" placeholder="At least 6 characters" />
-          <div className="hint">Use this password to log in and update your details later</div>
-        </div>
 
         <div className="form-group">
           <label className="checkbox-label">
